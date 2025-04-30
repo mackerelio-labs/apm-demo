@@ -1,0 +1,13 @@
+[Unit]
+Description=Rails Demo
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/sample-app
+ExecStart=/home/ubuntu/sample-app/run.sh
+User=ubuntu
+Group=ubuntu
+
+[Install]
+WantedBy=default.target

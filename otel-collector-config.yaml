@@ -1,0 +1,78 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4319
+  mysql:
+    endpoint: db:3306
+    username: root
+    password: mysql
+    tls:
+      insecure: true
+    collection_interval: 30s
+    initial_delay: 30s
+  hostmetrics:
+    scrapers:
+      cpu:
+      disk:
+      filesystem:
+      load:
+      memory:
+      network:
+      paging:
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 5000
+    send_batch_max_size: 5000
+  batch/1m:
+    timeout: 1m
+  resource/namespace:
+    attributes:
+      - key: service.namespace
+        value: apm-demo
+        action: upsert
+  resource/namespacemetric:
+    attributes:
+      - key: service.name
+        value: sample-app
+        action: insert
+      - key: service.namespace
+        value: apm-demo
+        action: upsert
+
+exporters:
+  otlphttp/mackerel:
+    endpoint: https://otlp-vaxila.mackerelio.com
+    compression: gzip
+    headers:
+      Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
+  otlp/mackerel:
+    endpoint: otlp.mackerelio.com:4317
+    headers:
+      Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
+  #otlphttp/signoz:
+  #  endpoint: http://${env:SIGNOZ_HOST}:4318
+  debug:
+
+connectors:
+  spanmetrics:
+    metrics_flush_interval: 15s
+    histogram:
+      exponential:
+    dimensions:
+      - name: http.method
+        default: GET
+      - name: http.status_code
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource/namespace, batch]
+      exporters: [debug, otlphttp/mackerel, spanmetrics]
+    metrics:
+      receivers: [otlp, hostmetrics, spanmetrics, mysql]
+      processors: [resource/namespacemetric, batch/1m]
+      exporters: [debug, otlp/mackerel]

@@ -1,0 +1,132 @@
+x-app-base: &app-base
+  build:
+    context: sample-app
+  image: sample-app:latest
+  deploy:
+    resources:
+      limits:
+        memory: 200M
+  restart: unless-stopped
+  depends_on:
+    - db
+    - otel-collector
+  networks:
+    - apm-demo
+
+services:
+  prepare:
+    image: sample-app:latest
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    depends_on:
+      - db
+    networks:
+      - apm-demo
+    environment:
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: mysql
+      DATABASE_HOST: db
+    command: "/bin/true"
+
+  app00:
+    <<: *app-base
+    container_name: sample-app00
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: mysql
+      DATABASE_HOST: db
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
+      OTEL_SERVICE_NAME: "otel-sample-app"
+      SERVICE_VERSION: "v0.1"
+      #USE_SERVICE_VERSION_AS_ENVIRONMENT_NAME: true
+    command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
+
+  app01:
+    <<: *app-base
+    container_name: sample-app01
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: mysql
+      DATABASE_HOST: db
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
+      OTEL_SERVICE_NAME: "otel-sample-app"
+      SERVICE_VERSION: "v1.0"
+      #USE_SERVICE_VERSION_AS_ENVIRONMENT_NAME: true
+    command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
+
+  app02:
+    <<: *app-base
+    container_name: sample-app02
+    ports:
+      - "127.0.0.1:3002:3000"
+    environment:
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: mysql
+      DATABASE_HOST: db
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
+      OTEL_SERVICE_NAME: "otel-sample-app"
+      SERVICE_VERSION: "v2.0"
+      #USE_SERVICE_VERSION_AS_ENVIRONMENT_NAME: true
+    command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
+
+  app03:
+    <<: *app-base
+    container_name: sample-app03
+    ports:
+      - "127.0.0.1:3003:3000"
+    environment:
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: mysql
+      DATABASE_HOST: db
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
+      OTEL_SERVICE_NAME: "otel-sample-app"
+      SERVICE_VERSION: "v3.0"
+      #USE_SERVICE_VERSION_AS_ENVIRONMENT_NAME: true
+    command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
+
+  db:
+    container_name: sample-db
+    image: public.ecr.aws/docker/library/mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql
+    networks:
+      - apm-demo
+
+  otel-collector:
+    container_name: sample-otel-collector
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.122.1
+    # ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - 127.0.0.1:4319:4319
+    env_file:
+      - env.txt
+    networks:
+      - apm-demo
+
+  locust:
+    container_name: locust
+    build:
+      context: locust
+    depends_on:
+      - app00
+      - app01
+      - app02
+      - app03
+    volumes:
+      - ./locust/locustfile.py:/home/locust/locustfile.py
+    command: --headless -u 12 --loglevel ERROR
+    environment:
+      - DISABLE_PLAYWRIGHT
+    networks:
+      - apm-demo
+
+networks:
+  apm-demo:
