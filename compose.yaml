@@ -102,7 +102,6 @@ services:
     # ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
-      # - /proc:/hostfs/proc
     ports:
       - 127.0.0.1:4319:4319
     env_file:
