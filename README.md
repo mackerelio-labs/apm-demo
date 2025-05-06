@@ -39,7 +39,13 @@ Mackerelのオーガニゼーションを用意します。プランはTrial/Fre
 
 Linux上のDocker環境を想定しています（最低2GB以上のメモリ）。macOSでも動作することを確認していますが、hostmetrics receiverやDocker Stats receiverをカスタマイズして利用するにはLinux OSである必要があります。
 
-クリーニング・データベースの初期化・起動の一連の実行を`run.sh`スクリプトにまとめているので、これを実行します。
+最初にイメージをビルドします（初回のみ）。
+
+```
+docker compose build
+```
+
+クリーニング・データベースの初期化・起動の一連の実行を`run.sh`スクリプトにまとめているので、それを実行します。
 
 ```
 ./run.sh
