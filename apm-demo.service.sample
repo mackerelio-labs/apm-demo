@@ -1,0 +1,13 @@
+[Unit]
+Description=APM Demo
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/apm-demo
+ExecStart=/home/ubuntu/apm-demo/run.sh
+User=ubuntu
+Group=ubuntu
+
+[Install]
+WantedBy=default.target
