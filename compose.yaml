@@ -7,6 +7,8 @@ x-app-base: &app-base
       limits:
         memory: 200M
   restart: unless-stopped
+  env_file:
+    - env.txt
   depends_on:
     - db
     - otel-collector
@@ -42,7 +44,6 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v0.1"
-      #USE_SERVICE_VERSION_AS_ENVIRONMENT_NAME: true
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
 
   app01:
@@ -57,7 +58,6 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v1.0"
-      #USE_SERVICE_VERSION_AS_ENVIRONMENT_NAME: true
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
 
   app02:
@@ -72,7 +72,6 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v2.0"
-      #USE_SERVICE_VERSION_AS_ENVIRONMENT_NAME: true
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
 
   app03:
@@ -87,7 +86,6 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v3.0"
-      #USE_SERVICE_VERSION_AS_ENVIRONMENT_NAME: true
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
 
   db:
@@ -104,6 +102,7 @@ services:
     # ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+      # - /proc:/hostfs/proc
     ports:
       - 127.0.0.1:4319:4319
     env_file:

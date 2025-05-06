@@ -11,7 +11,10 @@ receivers:
       insecure: true
     collection_interval: 30s
     initial_delay: 30s
+  # docker_stats:
+    # collection_interval: 60s
   hostmetrics:
+    # root_path: /hostfs
     scrapers:
       cpu:
       disk:
@@ -52,8 +55,8 @@ exporters:
     endpoint: otlp.mackerelio.com:4317
     headers:
       Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
-  #otlphttp/signoz:
-  #  endpoint: http://${env:SIGNOZ_HOST}:4318
+  # otlphttp/signoz:
+    # endpoint: http://${env:SIGNOZ_HOST:-localhost}:4318
   debug:
 
 connectors:
@@ -72,7 +75,9 @@ service:
       receivers: [otlp]
       processors: [resource/namespace, batch]
       exporters: [debug, otlphttp/mackerel, spanmetrics]
+      # exporters: [debug, otlphttp/mackerel, otlphttp/signoz, spanmetrics]
     metrics:
       receivers: [otlp, hostmetrics, spanmetrics, mysql]
+      # receivers: [otlp, hostmetrics, spanmetrics, mysql, docker_stats]
       processors: [resource/namespacemetric, batch/1m]
       exporters: [debug, otlp/mackerel]
