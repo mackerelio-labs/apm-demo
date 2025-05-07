@@ -75,9 +75,9 @@ docker compose logs otel-collector -f
 ### メトリック
 
 - `sample-app`（`apm-demo`ネームスペース）
-  - ホストリソースメトリック、MySQLメトリック、スパンメトリックが含まれます（53個）。
+  - ホストリソースメトリック、MySQLメトリック、スパンメトリックが含まれます。
 - `otelcol-contrib`（`apm-demo`ネームスペース）
-  - OpenTelemetry Collector自身の内部メトリックです（29個）。
+  - OpenTelemetry Collector自身の内部メトリックです。
 
 ## カスタマイズ
 
