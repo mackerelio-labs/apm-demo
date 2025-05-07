@@ -6,7 +6,7 @@
 
 ## どのようなデモを提供するか
 
-架空の商品カタログのWebアプリケーションを動かします。
+架空の商品カタログのWebアプリケーションがデモの題材です。
 
 ![](./images/siteimage.jpg)
 
@@ -65,6 +65,19 @@ docker compose build
 ```
 docker compose logs otel-collector -f
 ```
+
+## 送られるシグナル
+### トレース
+
+- `sample-app`（`apm-demo`ネームスペース）
+  - Ruby on Railsアプリケーションのトレースが含まれます。
+
+### メトリック
+
+- `sample-app`（`apm-demo`ネームスペース）
+  - ホストリソースメトリック、MySQLメトリック、スパンメトリックが含まれます（53個）。
+- `otelcol-contrib`（`apm-demo`ネームスペース）
+  - OpenTelemetry Collector自身の内部メトリックです（29個）。
 
 ## カスタマイズ
 
