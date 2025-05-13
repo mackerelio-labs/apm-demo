@@ -28,7 +28,7 @@
 
 ## 設定
 
-Mackerelのオーガニゼーションを用意します。プランはTrial/Free/Standardを問いません。Standardの場合、無料枠を超えた場合は課金対象になることに注意してください（Trial・Freeの場合は無料枠に到達した場合は当月はそれ以上のトレース スパン投稿はできなくなります。[詳細](https://ja.mackerel.io/pricing)）。
+Mackerelのオーガニゼーションを用意します。プランはTrial/Free/Standardを問いません。Standardの場合、メトリックは課金対象になること、およびスパン無料枠を超えた場合もそれは課金対象になることに注意してください（Trial・Freeの場合は無料枠に到達した場合は当月はそれ以上のトレース スパン投稿はできなくなります。[詳細](https://ja.mackerel.io/pricing)）。
 
 オーガニゼーションのAPIキー（Write権限あり）を`env.txt`の`MACKEREL_APIKEY=`の後に記述し、保存します。
 
