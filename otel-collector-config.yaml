@@ -65,20 +65,21 @@ connectors:
       - name: http.status_code
 
 service:
-  telemetry:
-    metrics:
-      readers:
-        - periodic:
-            exporter:
-              otlp:
-                protocol: http/protobuf
-                endpoint: http://otel-collector:4319
+  #telemetry:
+  #  metrics:
+  #    readers:
+  #      - periodic:
+  #          exporter:
+  #            otlp:
+  #              protocol: http/protobuf
+  #              endpoint: http://otel-collector:4319
   pipelines:
     traces:
       receivers: [otlp]
       processors: [resource/namespace, batch]
-      exporters: [debug, otlphttp/mackerel, spanmetrics]
-    metrics:
-      receivers: [otlp, hostmetrics, spanmetrics, mysql]
-      processors: [resource/namespacemetric, batch/1m]
-      exporters: [debug, otlp/mackerel]
+      exporters: [debug, otlphttp/mackerel]
+      #exporters: [debug, otlphttp/mackerel, spanmetrics]
+    #metrics:
+    #  receivers: [otlp, hostmetrics, spanmetrics, mysql]
+    #  processors: [resource/namespacemetric, batch/1m]
+    #  exporters: [debug, otlp/mackerel]
