@@ -14,6 +14,11 @@ x-app-base: &app-base
     - otel-collector
   networks:
     - apm-demo
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "2m"
+      max-file: "1"
 
 services:
   prepare:
@@ -95,6 +100,11 @@ services:
       MYSQL_ROOT_PASSWORD: mysql
     networks:
       - apm-demo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2m"
+        max-file: "1"
 
   otel-collector:
     container_name: sample-otel-collector
@@ -108,6 +118,11 @@ services:
       - env.txt
     networks:
       - apm-demo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2m"
+        max-file: "1"
 
   locust:
     container_name: locust
@@ -125,6 +140,11 @@ services:
       - DISABLE_PLAYWRIGHT
     networks:
       - apm-demo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2m"
+        max-file: "1"
 
 networks:
   apm-demo:
