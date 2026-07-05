@@ -74,6 +74,10 @@ services:
     container_name: sample-app02
     ports:
       - "127.0.0.1:3002:3000"
+    depends_on:
+      - db
+      - otel-collector
+      - fluentd
     environment:
       DATABASE_USERNAME: root
       DATABASE_PASSWORD: mysql
@@ -82,6 +86,13 @@ services:
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v2.0"
       ENVIRONMENT_NAME: "production"
+      LOG_TO_STDOUT: "1"
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        tag: "app02"
+        fluentd-async: "true"
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
 
   app03:
@@ -123,6 +134,22 @@ services:
       - 127.0.0.1:4319:4319
     env_file:
       - env.txt
+    networks:
+      - apm-demo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2m"
+        max-file: "1"
+
+  fluentd:
+    container_name: sample-fluentd
+    image: public.ecr.aws/docker/library/fluentd:v1.18-1
+    volumes:
+      - ./fluentd/fluent.conf:/fluentd/etc/fluent.conf
+    ports:
+      - "127.0.0.1:24224:24224"
+      - "127.0.0.1:24224:24224/udp"
     networks:
       - apm-demo
     logging:

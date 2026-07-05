@@ -20,6 +20,8 @@ receivers:
       memory:
       network:
       paging:
+  fluentforward:
+    endpoint: 0.0.0.0:8006
   filelog/app:
     include: ["/app/log/*.log"]
     start_at: end
@@ -111,7 +113,7 @@ service:
       processors: [resource/namespace]
       exporters: [otlp_http/mackerel, spanmetrics]
     logs:
-      receivers: [otlp, filelog/app]
+      receivers: [otlp, filelog/app, fluentforward]
       processors: [resource/namespace_with_servicename, transform/applog]
       exporters: [otlp_http/mackerel]
     metrics:

@@ -51,14 +51,17 @@ Rails.application.configure do
   config.action_controller.raise_on_missing_callback_actions = true
 
   config.hosts.clear
-  log_name = if ENV["ENVIRONMENT_NAME"] && ENV["SERVICE_VERSION"]
-               "#{ENV["ENVIRONMENT_NAME"]}-#{ENV["SERVICE_VERSION"]}.log"
+  log_dest = if ENV["LOG_TO_STDOUT"]
+               $stdout
              else
-               "development.log"
+               log_name = if ENV["ENVIRONMENT_NAME"] && ENV["SERVICE_VERSION"]
+                            "#{ENV["ENVIRONMENT_NAME"]}-#{ENV["SERVICE_VERSION"]}.log"
+                          else
+                            "development.log"
+                          end
+               Rails.root.join("log", log_name)
              end
-  logger = ActiveSupport::Logger.new(
-    Rails.root.join("log", log_name), 1, 10 * 1024 * 1024
-  )
+  logger = ActiveSupport::Logger.new(log_dest, 1, 10 * 1024 * 1024)
   logger.formatter = proc do |severity, time, _progname, msg|
     entry = { "timestamp" => time.utc.strftime("%Y-%m-%dT%H:%M:%S.%3NZ"), "severity" => severity }
 
