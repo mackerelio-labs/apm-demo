@@ -1,5 +1,4 @@
 require "active_support/core_ext/integer/time"
-require "json"
 
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
@@ -52,83 +51,63 @@ Rails.application.configure do
   config.action_controller.raise_on_missing_callback_actions = true
 
   config.hosts.clear
-  # config.logger = ActiveSupport::Logger.new(STDOUT)
-  development_logger = ActiveSupport::Logger.new(
-    Rails.root.join('log', 'development.log'),
-    1,                  # 保持する世代数
-    10 * 1024 * 1024    # 1ファイルあたりの最大サイズ
+  log_name = if ENV["ENVIRONMENT_NAME"] && ENV["SERVICE_VERSION"]
+               "#{ENV["ENVIRONMENT_NAME"]}-#{ENV["SERVICE_VERSION"]}.log"
+             else
+               "development.log"
+             end
+  logger = ActiveSupport::Logger.new(
+    Rails.root.join("log", log_name), 1, 10 * 1024 * 1024
   )
-  development_logger.formatter = proc do |severity, time, _progname, msg|
-    base = {
-      "timestamp" => time.utc.strftime("%Y-%m-%dT%H:%M:%S.%3NZ")
-    }
+  logger.formatter = proc do |severity, time, _progname, msg|
+    entry = { "timestamp" => time.utc.strftime("%Y-%m-%dT%H:%M:%S.%3NZ"), "severity" => severity }
 
-    raw = case msg
-          when String
-            msg
-          when Exception
-            [msg.message, *(msg.backtrace || [])].join("\n")
-          else
-            msg.inspect
-          end
-
-    # Keep request summary JSON logs, but drop noisy debug SQL logs.
-    next "" if severity == "DEBUG"
-
-    # Drop duplicated multiline exception output; lograge already emits exception details.
-    if severity == "ERROR" && raw.include?("Error (") && raw.include?("\napp/")
-      next ""
-    end
-
-    candidate = raw.lstrip
-    if candidate.start_with?("{")
-      begin
-        parsed = JSON.parse(candidate)
-        if parsed.is_a?(Hash)
-          "#{base.merge(parsed).to_json}\n"
-        else
-          "#{base.merge("severity" => severity, "message" => raw).to_json}\n"
-        end
-      rescue JSON::ParserError
-        "#{base.merge("severity" => severity, "message" => raw).to_json}\n"
-      end
+    case msg
+    when Hash
+      entry.merge!(msg.stringify_keys)
+    when Exception
+      entry["message"] = msg.message
+      entry["backtrace"] = (msg.backtrace || []).first(30).join("\n")
+    when String
+      # DebugExceptions middleware outputs "  \nClassName (msg):\n..." — lograge already covers this
+      next "" if msg.start_with?("  \n")
+      entry["message"] = msg
     else
-      "#{base.merge("severity" => severity, "message" => raw).to_json}\n"
+      entry["message"] = msg.to_s
     end
+
+    span = OpenTelemetry::Trace.current_span
+    if span.context.valid?
+      entry["trace_id"] = span.context.hex_trace_id
+      entry["span_id"]  = span.context.hex_span_id
+    end
+
+    "#{entry.to_json}\n"
   end
-  config.logger = development_logger
+  config.logger = logger
 
   config.lograge.enabled = true
   config.lograge.base_controller_class = "ActionController::API"
   config.lograge.keep_original_rails_log = false
-  config.lograge.formatter = Lograge::Formatters::Json.new
+  config.lograge.formatter = Lograge::Formatters::Raw.new
 
   config.lograge.custom_options = lambda do |event|
     status = event.payload[:status].to_i
-    data = {
-      severity: if event.payload[:exception_object] || status >= 500
-                  "ERROR"
-                elsif status >= 400
-                  "WARN"
-                else
-                  "INFO"
-                end
-    }
-    current_span = OpenTelemetry::Trace.current_span
-    if current_span.context.valid?
-      data[:trace_id] = current_span.context.hex_trace_id
-      data[:span_id] = current_span.context.hex_span_id
+    data = {}
+
+    if event.payload[:exception_object] || status >= 500
+      data[:severity] = "ERROR"
+    elsif status >= 400
+      data[:severity] = "WARN"
     end
 
     error = event.payload[:exception_object]
     if error
       data[:error_class] = error.class.name
       data[:error_message] = error.message
-      cleaned = Rails.backtrace_cleaner.clean(error.backtrace || [])
-      data[:backtrace] = cleaned.first(30).join("\n")
+      data[:backtrace] = Rails.backtrace_cleaner.clean(error.backtrace || []).first(30).join("\n")
     elsif event.payload[:exception]
-      data[:error_class] = event.payload[:exception][0]
-      data[:error_message] = event.payload[:exception][1]
+      data[:error_class], data[:error_message] = event.payload[:exception]
     end
 
     data
