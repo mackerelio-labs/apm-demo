@@ -14,6 +14,8 @@ x-app-base: &app-base
     - otel-collector
   networks:
     - apm-demo
+  volumes:
+    - app-demo-logs:/app/log
   logging:
     driver: "json-file"
     options:
@@ -72,6 +74,10 @@ services:
     container_name: sample-app02
     ports:
       - "127.0.0.1:3002:3000"
+    depends_on:
+      - db
+      - otel-collector
+      - fluentd
     environment:
       DATABASE_USERNAME: root
       DATABASE_PASSWORD: mysql
@@ -80,6 +86,13 @@ services:
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v2.0"
       ENVIRONMENT_NAME: "production"
+      LOG_TO_STDOUT: "1"
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        tag: "app02"
+        fluentd-async: "true"
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
 
   app03:
@@ -112,14 +125,31 @@ services:
 
   otel-collector:
     container_name: sample-otel-collector
-    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.122.1
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.155.0
     # ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+      - app-demo-logs:/app/log
     ports:
       - 127.0.0.1:4319:4319
     env_file:
       - env.txt
+    networks:
+      - apm-demo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2m"
+        max-file: "1"
+
+  fluentd:
+    container_name: sample-fluentd
+    image: public.ecr.aws/docker/library/fluentd:v1.18-1
+    volumes:
+      - ./fluentd/fluent.conf:/fluentd/etc/fluent.conf
+    ports:
+      - "127.0.0.1:24224:24224"
+      - "127.0.0.1:24224:24224/udp"
     networks:
       - apm-demo
     logging:
@@ -142,6 +172,12 @@ services:
     command: --headless -u 12 --loglevel ERROR
     environment:
       - DISABLE_PLAYWRIGHT
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4319
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_SERVICE_NAME=locust
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=apm-demo
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=none
     networks:
       - apm-demo
     logging:
@@ -149,6 +185,9 @@ services:
       options:
         max-size: "2m"
         max-file: "1"
+
+volumes:
+  app-demo-logs:
 
 networks:
   apm-demo:

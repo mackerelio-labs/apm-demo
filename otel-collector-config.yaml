@@ -20,6 +20,19 @@ receivers:
       memory:
       network:
       paging:
+  fluentforward:
+    endpoint: 0.0.0.0:8006
+  filelog/app:
+    include: ["/app/log/*.log"]
+    start_at: end
+    operators:
+      - type: json_parser
+        on_error: send
+        timestamp:
+          parse_from: attributes.timestamp
+          layout: '%Y-%m-%dT%H:%M:%S.%LZ'
+        severity:
+          parse_from: attributes.severity
 
 processors:
   batch:
@@ -33,7 +46,7 @@ processors:
       - key: service.namespace
         value: apm-demo
         action: upsert
-  resource/namespacemetric:
+  resource/namespace_with_servicename:
     attributes:
       - key: service.name
         value: sample-app
@@ -41,18 +54,42 @@ processors:
       - key: service.namespace
         value: apm-demo
         action: upsert
+  transform/applog:
+    log_statements:
+      - context: log
+        statements:
+          - set(time_unix_nano, observed_time_unix_nano) where time_unix_nano == 0
+          - set(trace_id.string, attributes["trace_id"]) where attributes["trace_id"] != nil
+          - delete_key(attributes, "trace_id")
+          - set(span_id.string, attributes["span_id"]) where attributes["span_id"] != nil
+          - delete_key(attributes, "span_id")
+          - delete_key(attributes, "timestamp")
+          - delete_key(attributes, "severity")
+          # - set(body, Concat([attributes["method"], " ", attributes["path"], " → ", attributes["status"]], "")) where attributes["method"] != nil and attributes["message"] == nil
+          # - set(body, attributes["message"]) where attributes["message"] != nil
+          # - delete_key(attributes, "message")
 
 exporters:
-  otlphttp/mackerel:
+  otlp_http/mackerel:
     endpoint: https://otlp-vaxila.mackerelio.com
     compression: gzip
     headers:
+      Accept: "*/*"
       Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
+    sending_queue:
+      batch:
+        flush_timeout: 200ms
+        min_size: 3500000
   otlp/mackerel:
     endpoint: otlp.mackerelio.com:4317
     headers:
       Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
+    sending_queue:
+      batch:
+        flush_timeout: 200ms
+        min_size: 3500000
   debug:
+    # verbosity: detailed
 
 connectors:
   spanmetrics:
@@ -77,9 +114,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [resource/namespace, batch]
-      exporters: [debug, otlphttp/mackerel, spanmetrics]
+      processors: [resource/namespace]
+      exporters: [otlp_http/mackerel, spanmetrics]
+    logs:
+      receivers: [otlp, filelog/app, fluentforward]
+      processors: [resource/namespace_with_servicename, transform/applog]
+      exporters: [otlp_http/mackerel]
     metrics:
       receivers: [otlp, hostmetrics, spanmetrics, mysql]
-      processors: [resource/namespacemetric, batch/1m]
-      exporters: [debug, otlp/mackerel]
+      processors: [resource/namespace_with_servicename, batch/1m]
+      exporters: [otlp/mackerel]

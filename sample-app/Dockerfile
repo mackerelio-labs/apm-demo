@@ -15,6 +15,7 @@ COPY config/ ./config
 COPY config.ru .
 COPY db/ ./db
 COPY lib/ ./lib
+COPY log/ ./log
 COPY public/ ./public
 COPY script/ ./script
 COPY storage/ ./storage
