@@ -54,7 +54,7 @@ processors:
       - key: service.namespace
         value: apm-demo
         action: upsert
-  transform/applog:
+  transform/log_common:
     log_statements:
       - context: log
         statements:
@@ -65,9 +65,19 @@ processors:
           - delete_key(attributes, "span_id")
           - delete_key(attributes, "timestamp")
           - delete_key(attributes, "severity")
-          # - set(body, Concat([attributes["method"], " ", attributes["path"], " → ", attributes["status"]], "")) where attributes["method"] != nil and attributes["message"] == nil
-          # - set(body, attributes["message"]) where attributes["message"] != nil
-          # - delete_key(attributes, "message")
+  transform/fluentforward:
+    error_mode: silent
+    log_statements:
+      - context: log
+        statements:
+          - merge_maps(attributes, ParseJSON(body), "upsert") where IsString(body)
+          - set(severity_text, attributes["severity"]) where attributes["severity"] != nil
+          - set(severity_number, SEVERITY_NUMBER_TRACE) where attributes["severity"] == "TRACE"
+          - set(severity_number, SEVERITY_NUMBER_DEBUG) where attributes["severity"] == "DEBUG"
+          - set(severity_number, SEVERITY_NUMBER_INFO) where attributes["severity"] == "INFO"
+          - set(severity_number, SEVERITY_NUMBER_WARN) where attributes["severity"] == "WARN" or attributes["severity"] == "WARNING"
+          - set(severity_number, SEVERITY_NUMBER_ERROR) where attributes["severity"] == "ERROR"
+          - set(severity_number, SEVERITY_NUMBER_FATAL) where attributes["severity"] == "FATAL"
 
 exporters:
   otlp_http/mackerel:
@@ -89,7 +99,7 @@ exporters:
         flush_timeout: 200ms
         min_size: 3500000
   debug:
-    # verbosity: detailed
+    verbosity: detailed
 
 connectors:
   spanmetrics:
@@ -117,8 +127,12 @@ service:
       processors: [resource/namespace]
       exporters: [otlp_http/mackerel, spanmetrics]
     logs:
-      receivers: [otlp, filelog/app, fluentforward]
-      processors: [resource/namespace_with_servicename, transform/applog]
+      receivers: [otlp, filelog/app]
+      processors: [resource/namespace_with_servicename, transform/log_common]
+      exporters: [otlp_http/mackerel]
+    logs/fluentforward:
+      receivers: [fluentforward]
+      processors: [resource/namespace_with_servicename, transform/fluentforward, transform/log_common]
       exporters: [otlp_http/mackerel]
     metrics:
       receivers: [otlp, hostmetrics, spanmetrics, mysql]
