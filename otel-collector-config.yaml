@@ -79,11 +79,15 @@ exporters:
     sending_queue:
       batch:
         flush_timeout: 200ms
-        min_size: 8192
+        min_size: 3500000
   otlp/mackerel:
     endpoint: otlp.mackerelio.com:4317
     headers:
       Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
+    sending_queue:
+      batch:
+        flush_timeout: 200ms
+        min_size: 3500000
   debug:
     # verbosity: detailed
 
