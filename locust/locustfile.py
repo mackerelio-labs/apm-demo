@@ -7,8 +7,8 @@ import os
 
 class HostUser0(HttpUser):
     host = f"http://{os.getenv('APP00', 'app00')}:3000"
-    weight = 2
-    wait_time = between(60, 300)
+    weight = 1
+    wait_time = between(120, 600)
 
     @task
     def request_to_host(self):
