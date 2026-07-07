@@ -12,6 +12,7 @@ x-app-base: &app-base
   depends_on:
     - db
     - otel-collector
+    - product-info-api
   networks:
     - apm-demo
   volumes:
@@ -52,6 +53,7 @@ services:
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v0.1"
       ENVIRONMENT_NAME: "production"
+      PRODUCT_INFO_API_HOST: "product-info-api"
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
 
   app01:
@@ -67,6 +69,7 @@ services:
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v1.0"
       ENVIRONMENT_NAME: "production"
+      PRODUCT_INFO_API_HOST: "product-info-api"
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
 
   app02:
@@ -77,6 +80,7 @@ services:
     depends_on:
       - db
       - otel-collector
+      - product-info-api
       - fluentd
     environment:
       DATABASE_USERNAME: root
@@ -86,6 +90,7 @@ services:
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v2.0"
       ENVIRONMENT_NAME: "production"
+      PRODUCT_INFO_API_HOST: "product-info-api"
       LOG_TO_STDOUT: "1"
     logging:
       driver: "fluentd"
@@ -108,7 +113,32 @@ services:
       OTEL_SERVICE_NAME: "otel-sample-app"
       SERVICE_VERSION: "v3.0"
       ENVIRONMENT_NAME: "staging"
+      PRODUCT_INFO_API_HOST: "product-info-api"
     command: ["/bin/sh", "-c", "rm -f tmp/pids/server.pid; bin/rails server -p 3000 -b 0.0.0.0"]
+
+  product-info-api:
+    container_name: product-info-api
+    build:
+      context: product-info-api
+    image: product-info-api:latest
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: unless-stopped
+    depends_on:
+      - otel-collector
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4319"
+      OTEL_SERVICE_NAME: "product-info-api"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=apm-demo"
+    networks:
+      - apm-demo
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2m"
+        max-file: "1"
 
   db:
     container_name: sample-db

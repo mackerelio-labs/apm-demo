@@ -29,32 +29,27 @@ class ProductsController < ApplicationController
   def show
     product = Product.includes(:category).find(params[:id])
 
-    # IDで一見一貫性がないように見えつつ処理時間やエラーを発生させるための処理
-    hv = Digest::SHA256.hexdigest(params[:id])
-    v = hv.reverse[0, 2].to_i(16)
-    # vは0〜255になる。特定範囲の間はエラーを発生させる
-
-    OpenTelemetry.tracer_provider.tracer('product_controller').in_span(
-      'product info loader',
-      kind: :server
-    ) do |span|
-      span.set_attribute(OpenTelemetry::SemanticConventions::Trace::CODE_FUNCTION, "info_loader")
-      span.set_attribute('product.id', params[:id])
-      span.set_attribute('product.name', product.name)
-      span.set_attribute('product.categoryname', product.category.name)
-
-      sleep((v % 10 + 1) * 0.25)
-      if v < 40
-        sleep(2)
-        raise("Timeout to get product information")
-      end
-    end
-    render json: format_product(product)
+    product_info = fetch_product_info(params[:id])
+    render json: format_product(product).merge(product_info)
   rescue ActiveRecord::RecordNotFound
     render json: { error: 'Product not found' }, status: :not_found
   end
 
   private
+    def fetch_product_info(product_id)
+      host = ENV.fetch('PRODUCT_INFO_API_HOST', 'product-info-api')
+      port = ENV.fetch('PRODUCT_INFO_API_PORT', '4567')
+      uri = URI("http://#{host}:#{port}/products/#{product_id}")
+
+      response = Net::HTTP.get_response(uri)
+      if response.is_a?(Net::HTTPSuccess)
+        JSON.parse(response.body, symbolize_names: true)
+      else
+        parsed = JSON.parse(response.body) rescue {}
+        raise "Product info API error (#{response.code}): #{parsed['error'] || response.body}"
+      end
+    end
+
     def format_product(product)
       {
         product: product.name,
