@@ -97,6 +97,9 @@ Rails.application.configure do
   config.lograge.custom_options = lambda do |event|
     status = event.payload[:status].to_i
     data = {}
+    data[:email] = ["john@example.invalid", "jane@example.invalid", "bob@example.invalid"].sample
+    data[:phone] = ["090-1234-5678", "080-2345-6789", "070-3456-7890"].sample
+    data[:token] = "dummy-dummy-dummy"
 
     if event.payload[:exception_object] || status >= 500
       data[:severity] = "ERROR"

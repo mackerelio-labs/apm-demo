@@ -27,12 +27,13 @@ receivers:
     start_at: end
     operators:
       - type: json_parser
+        parse_to: body
         on_error: send
         timestamp:
-          parse_from: attributes.timestamp
+          parse_from: body.timestamp
           layout: '%Y-%m-%dT%H:%M:%S.%LZ'
         severity:
-          parse_from: attributes.severity
+          parse_from: body.severity
 
 processors:
   batch:
@@ -60,44 +61,49 @@ processors:
         statements:
           - set(time_unix_nano, observed_time_unix_nano) where time_unix_nano == 0
           - set(trace_id.string, attributes["trace_id"]) where attributes["trace_id"] != nil
-          - delete_key(attributes, "trace_id")
+          - set(trace_id.string, body["trace_id"]) where IsMap(body) and body["trace_id"] != nil
+          - delete_key(body, "trace_id") where IsMap(body)
           - set(span_id.string, attributes["span_id"]) where attributes["span_id"] != nil
-          - delete_key(attributes, "span_id")
-          - delete_key(attributes, "timestamp")
+          - set(span_id.string, body["span_id"]) where IsMap(body) and body["span_id"] != nil
+          - delete_key(body, "span_id") where IsMap(body)
           - delete_key(attributes, "severity")
+          - set(body["email"], SHA256(body["email"])) where IsMap(body)
+          - set(body["phone"], "***") where IsMap(body)
+          - delete_key(body, "token") where IsMap(body)
   transform/fluentforward:
     error_mode: silent
     log_statements:
       - context: log
         statements:
-          - merge_maps(attributes, ParseJSON(body), "upsert") where IsString(body)
-          - set(severity_text, attributes["severity"]) where attributes["severity"] != nil
-          - set(severity_number, SEVERITY_NUMBER_TRACE) where attributes["severity"] == "TRACE"
-          - set(severity_number, SEVERITY_NUMBER_DEBUG) where attributes["severity"] == "DEBUG"
-          - set(severity_number, SEVERITY_NUMBER_INFO) where attributes["severity"] == "INFO"
-          - set(severity_number, SEVERITY_NUMBER_WARN) where attributes["severity"] == "WARN" or attributes["severity"] == "WARNING"
-          - set(severity_number, SEVERITY_NUMBER_ERROR) where attributes["severity"] == "ERROR"
-          - set(severity_number, SEVERITY_NUMBER_FATAL) where attributes["severity"] == "FATAL"
+          - set(body, ParseJSON(body)) where IsString(body)
+          - set(severity_text, body["severity"]) where body["severity"] != nil
+          - set(severity_number, SEVERITY_NUMBER_TRACE) where body["severity"] == "TRACE"
+          - set(severity_number, SEVERITY_NUMBER_DEBUG) where body["severity"] == "DEBUG"
+          - set(severity_number, SEVERITY_NUMBER_INFO) where body["severity"] == "INFO"
+          - set(severity_number, SEVERITY_NUMBER_WARN) where body["severity"] == "WARN" or body["severity"] == "WARNING"
+          - set(severity_number, SEVERITY_NUMBER_ERROR) where body["severity"] == "ERROR"
+          - set(severity_number, SEVERITY_NUMBER_FATAL) where body["severity"] == "FATAL"
 
 exporters:
-  otlp_http/mackerel:
-    endpoint: https://otlp-vaxila.mackerelio.com
-    compression: gzip
-    headers:
-      Accept: "*/*"
-      Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
-    sending_queue:
-      batch:
-        flush_timeout: 200ms
-        min_size: 3500000
-  otlp/mackerel:
-    endpoint: otlp.mackerelio.com:4317
-    headers:
-      Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
-    sending_queue:
-      batch:
-        flush_timeout: 200ms
-        min_size: 3500000
+  mackerel_otlp:
+  # otlp_http/mackerel:
+  #   endpoint: https://otlp-vaxila.mackerelio.com
+  #   compression: gzip
+  #   headers:
+  #     Accept: "*/*"
+  #     Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
+  #   sending_queue:
+  #     batch:
+  #       flush_timeout: 200ms
+  #       min_size: 3500000
+  # otlp/mackerel:
+  #   endpoint: otlp.mackerelio.com:4317
+  #   headers:
+  #     Mackerel-Api-Key: ${env:MACKEREL_APIKEY}
+  #   sending_queue:
+  #     batch:
+  #       flush_timeout: 200ms
+  #       min_size: 3500000
   debug:
     verbosity: detailed
 
@@ -125,16 +131,16 @@ service:
     traces:
       receivers: [otlp]
       processors: [resource/namespace]
-      exporters: [otlp_http/mackerel, spanmetrics]
+      exporters: [mackerel_otlp, spanmetrics]
     logs:
       receivers: [otlp, filelog/app]
       processors: [resource/namespace_with_servicename, transform/log_common]
-      exporters: [otlp_http/mackerel]
+      exporters: [mackerel_otlp]
     logs/fluentforward:
       receivers: [fluentforward]
       processors: [resource/namespace_with_servicename, transform/fluentforward, transform/log_common]
-      exporters: [otlp_http/mackerel]
+      exporters: [mackerel_otlp]
     metrics:
       receivers: [otlp, hostmetrics, spanmetrics, mysql]
       processors: [resource/namespace_with_servicename, batch/1m]
-      exporters: [otlp/mackerel]
+      exporters: [mackerel_otlp]

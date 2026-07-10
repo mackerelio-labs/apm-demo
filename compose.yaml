@@ -154,16 +154,20 @@ services:
         max-file: "1"
 
   otel-collector:
-    container_name: sample-otel-collector
-    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.155.0
+    container_name: otel-collector
+    image: ghcr.io/mackerelio/opentelemetry-collector-mackerel/otelcol-mackerel:0.15.0
+    #image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.155.0
     # ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest
     volumes:
-      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+      - ./otel-collector-config.yaml:/home/nonroot/config.yaml
       - app-demo-logs:/app/log
+    command: ["--config", "/home/nonroot/config.yaml"]
     ports:
       - 127.0.0.1:4319:4319
     env_file:
       - env.txt
+    environment:
+      - OTELCOL_MACKEREL_HOST=otel-collector
     networks:
       - apm-demo
     logging:
