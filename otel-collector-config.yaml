@@ -11,7 +11,7 @@ receivers:
       insecure: true
     collection_interval: 30s
     initial_delay: 30s
-  hostmetrics:
+  host_metrics:
     scrapers:
       cpu:
       disk:
@@ -20,9 +20,9 @@ receivers:
       memory:
       network:
       paging:
-  fluentforward:
+  fluent_forward:
     endpoint: 0.0.0.0:8006
-  filelog/app:
+  file_log/app:
     include: ["/app/log/*.log"]
     start_at: end
     operators:
@@ -36,12 +36,6 @@ receivers:
           parse_from: body.severity
 
 processors:
-  batch:
-    timeout: 5s
-    send_batch_size: 5000
-    send_batch_max_size: 5000
-  batch/1m:
-    timeout: 1m
   resource/namespace:
     attributes:
       - key: service.namespace
@@ -70,7 +64,7 @@ processors:
           - set(body["email"], SHA256(body["email"])) where IsMap(body)
           - set(body["phone"], "***") where IsMap(body)
           - delete_key(body, "token") where IsMap(body)
-  transform/fluentforward:
+  transform/fluent_forward:
     error_mode: silent
     log_statements:
       - context: log
@@ -108,7 +102,7 @@ exporters:
     verbosity: detailed
 
 connectors:
-  spanmetrics:
+  span_metrics:
     metrics_flush_interval: 15s
     histogram:
       exponential:
@@ -131,16 +125,16 @@ service:
     traces:
       receivers: [otlp]
       processors: [resource/namespace]
-      exporters: [mackerel_otlp, spanmetrics]
+      exporters: [mackerel_otlp, span_metrics]
     logs:
-      receivers: [otlp, filelog/app]
+      receivers: [otlp, file_log/app]
       processors: [resource/namespace_with_servicename, transform/log_common]
       exporters: [mackerel_otlp]
     logs/fluentforward:
-      receivers: [fluentforward]
-      processors: [resource/namespace_with_servicename, transform/fluentforward, transform/log_common]
+      receivers: [fluent_forward]
+      processors: [resource/namespace_with_servicename, transform/fluent_forward, transform/log_common]
       exporters: [mackerel_otlp]
     metrics:
-      receivers: [otlp, hostmetrics, spanmetrics, mysql]
-      processors: [resource/namespace_with_servicename, batch/1m]
+      receivers: [otlp, host_metrics, span_metrics, mysql]
+      processors: [resource/namespace_with_servicename]
       exporters: [mackerel_otlp]
