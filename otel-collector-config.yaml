@@ -53,7 +53,6 @@ processors:
     log_statements:
       - context: log
         statements:
-          - set(time_unix_nano, observed_time_unix_nano) where time_unix_nano == 0
           - set(trace_id.string, attributes["trace_id"]) where attributes["trace_id"] != nil
           - set(trace_id.string, body["trace_id"]) where IsMap(body) and body["trace_id"] != nil
           - delete_key(body, "trace_id") where IsMap(body)
