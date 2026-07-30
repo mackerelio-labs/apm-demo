@@ -8,7 +8,7 @@ gem "opentelemetry-sdk", "~> 1.6"
 gem "opentelemetry-instrumentation-sinatra"
 gem "opentelemetry-instrumentation-net_http"
 gem "opentelemetry-instrumentation-rack"
-gem "opentelemetry-exporter-otlp", "~> 0.29.1"
+gem "opentelemetry-exporter-otlp", "~> 0.34.0"
 
 gem "opentelemetry-logs-sdk", "~> 0.6.0"
 gem "opentelemetry-exporter-otlp-logs", "~> 0.5.1"
